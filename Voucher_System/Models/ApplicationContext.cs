@@ -16,5 +16,11 @@ namespace Voucher_System.Models
         {
 
         }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomerVoucher>()
+                        .HasKey(CV => new { CV.CustomerId, CV.VoucherId });
+        }
     }
 }
