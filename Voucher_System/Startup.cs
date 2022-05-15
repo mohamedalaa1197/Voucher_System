@@ -1,3 +1,5 @@
+using API.Extensionservices;
+using API.Middlewares;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -29,8 +31,8 @@ namespace Voucher_System
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-
-            services.AddDbContext<ApplicationContext>(item => item.UseSqlServer(Configuration.GetConnectionString("VoucherDB")));
+            services.applicationServices(Configuration);
+            services.IdentityService(Configuration);
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo
@@ -44,10 +46,7 @@ namespace Voucher_System
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
+            app.UseMiddleware<ExceptionMiddleware>();
 
             app.UseSwagger();
             app.UseSwaggerUI(c =>
@@ -59,6 +58,10 @@ namespace Voucher_System
             app.UseHttpsRedirection();
 
             app.UseRouting();
+
+            app.UseCors(ploicy => ploicy.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:4200"));
+
+            app.UseAuthentication();
 
             app.UseAuthorization();
 

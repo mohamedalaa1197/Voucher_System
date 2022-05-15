@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Voucher_System.Migrations
 {
-    public partial class generateDBAndTables : Migration
+    public partial class initDB : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -12,8 +12,14 @@ namespace Voucher_System.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Points = table.Column<int>(type: "int", nullable: false)
+                    Points = table.Column<int>(type: "int", nullable: false),
+                    userName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    passwordHash = table.Column<byte[]>(type: "varbinary(max)", nullable: true),
+                    passwordSalt = table.Column<byte[]>(type: "varbinary(max)", nullable: true),
+                    dateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Created = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    lastActive = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Gender = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -25,7 +31,13 @@ namespace Voucher_System.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    userName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    passwordHash = table.Column<byte[]>(type: "varbinary(max)", nullable: true),
+                    passwordSalt = table.Column<byte[]>(type: "varbinary(max)", nullable: true),
+                    dateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Created = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    lastActive = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Gender = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {

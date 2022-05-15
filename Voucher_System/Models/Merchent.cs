@@ -5,10 +5,8 @@ using System.Threading.Tasks;
 
 namespace Voucher_System.Models
 {
-    public class Merchent
+    public class Merchent : BaseModel
     {
-        public Guid Id { get; set; }
-        public string Name { get; set; }
         public IEnumerable<Voucher> Vouchers { get; set; }
     }
 }

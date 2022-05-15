@@ -16,7 +16,9 @@ namespace Voucher_System.Models
         {
 
         }
-
+        public DbSet<Customer> Customers { get; set; }
+        public DbSet<Voucher> Vouchers { get; set; }
+        public DbSet<Merchent> Merchents { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<CustomerVoucher>()
