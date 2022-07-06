@@ -62,7 +62,7 @@ namespace Voucher_System.Controllers
         [HttpPost("test")]
         public async Task<IActionResult> Test([FromQuery] double amount)
         {
-            await AddTransaction(1, 18.67, amount, 0, 1, "USD");
+            await AddTransaction(1, 1, amount, 0, 1, "USD");
 
             return Ok();
         }
@@ -99,119 +99,123 @@ namespace Voucher_System.Controllers
             return await _applicationContext.Customers.AnyAsync(u => u.Email == email.ToLower());
         }
 
-        public async Task<double> GetUserSalesForThisMonth(int userId, int month)
-        {
-            var balanceUsd = await _applicationContext.Transactions
-                .Where(i => i.UserId == userId && i.Status != TransactionStatus.Rejected && i.CreateDate.Month == month)
-                .OrderByDescending(i => i.Id).SumAsync(i => i.SaleUSD);
-            return balanceUsd;
-        }
-
 
         public async Task<bool> AddTransaction(int userId, double usdExchangeRate,
-          double credit, double debit, int opsId, string Currency,
-          int? BouquetId = null, int? CreatedBy = null,
-          TransactionExtended transactionExtended = null)
+            double productSellPrice, double debit, int opsId, string Currency,
+            int? BouquetId = null, int? CreatedBy = null,
+            TransactionExtended transactionExtended = null)
         {
-            var creditUSD = credit * usdExchangeRate;
+            var productSellPrice_USD = productSellPrice * usdExchangeRate;
             var debitUSD = debit * usdExchangeRate;
-            var salesForthisMonthInUSD = await GetUserSalesForThisMonth(userId, DateTime.UtcNow.Month); //700
-            double commissionUSDValue = 0;
-
+            var userSellesForthisMonth = await GetUserProductSellsForThisMonth(userId, DateTime.UtcNow.Month); //700
+            var userSellesForThisMonth_USD = userSellesForthisMonth * usdExchangeRate;
+            double userCommissionValue = 0;
+            double userCommissionValue_USD = 0;
+            var userBalance = await GetUserBalanceInUSD(userId);
             var differenceTransaction = new Transaction
             {
                 UserId = userId,
                 BouquetId = BouquetId ?? 0,
                 CreatedBy = CreatedBy,
                 Type = CommunityTransactionType.difference,
-                Credit = credit,
                 Debit = debit,
                 Currency = Currency,
                 ExchangeRate = usdExchangeRate,
                 DebitUsd = debitUSD,
-                CreditUsd = creditUSD,
                 CreateDate = DateTime.UtcNow,
                 Note = "",
                 TransactionExtended = transactionExtended,
                 Status = TransactionStatus.Confirmed
             };
-            if (salesForthisMonthInUSD + creditUSD /* 700 + 100*/ <= 1000)
+            var totalSellAmountInUSD = (userSellesForThisMonth_USD + productSellPrice_USD);
+            if (totalSellAmountInUSD <= 1000)
             {
-                commissionUSDValue = 0.01 * creditUSD;
+                userCommissionValue = 0.01 * productSellPrice;
+                userCommissionValue_USD = userCommissionValue * usdExchangeRate;
             }
-            else if (salesForthisMonthInUSD + creditUSD > 1000 && salesForthisMonthInUSD + creditUSD < 4000)
+            else if (totalSellAmountInUSD > 1000 && totalSellAmountInUSD < 4000)
             {
-                commissionUSDValue = 0.02 * creditUSD;
-
-                //To Do
-                //Add difference transaction with the old values and sales = 0 and commission difference
-                differenceTransaction.SaleUSD = 0;
-
-                differenceTransaction.BalanceUsd = salesForthisMonthInUSD * 0.01 + commissionUSDValue;
-                await _applicationContext.Transactions.AddAsync(differenceTransaction);
-                await _applicationContext.SaveChangesAsync();
-
-            }
-            else if (salesForthisMonthInUSD + creditUSD > 4000 && salesForthisMonthInUSD + creditUSD < 7000)
-            {
-                commissionUSDValue = 0.03 * creditUSD;
-
-                differenceTransaction.SaleUSD = 0;
-                differenceTransaction.BalanceUsd = salesForthisMonthInUSD * 0.01 + commissionUSDValue;
-                await _applicationContext.Transactions.AddAsync(differenceTransaction);
-                await _applicationContext.SaveChangesAsync();
-
+                userCommissionValue = 0.02 * productSellPrice;
+                userCommissionValue_USD = userCommissionValue * usdExchangeRate;
+                if (userSellesForthisMonth <= 1000)
+                {
+                    differenceTransaction.ProductSellPriceUSD = 0;
+                    differenceTransaction.ProductSellPrice = 0;
+                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
+                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    await Add(differenceTransaction);
+                }
 
             }
-            else if (salesForthisMonthInUSD + creditUSD > 7000 && salesForthisMonthInUSD + creditUSD < 10000)
+            else if (totalSellAmountInUSD > 4000 && totalSellAmountInUSD < 7000)
             {
-                commissionUSDValue = 0.04 * creditUSD;
-
-                differenceTransaction.SaleUSD = 0;
-                differenceTransaction.BalanceUsd = salesForthisMonthInUSD * 0.01 + commissionUSDValue;
-                await _applicationContext.Transactions.AddAsync(differenceTransaction);
-                await _applicationContext.SaveChangesAsync();
-
+                userCommissionValue = 0.03 * productSellPrice;
+                userCommissionValue_USD = userCommissionValue * usdExchangeRate;
+                if (userSellesForthisMonth <= 4000)
+                {
+                    differenceTransaction.ProductSellPriceUSD = 0;
+                    differenceTransaction.ProductSellPrice = 0;
+                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
+                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    await Add(differenceTransaction);
+                }
+            }
+            else if (totalSellAmountInUSD > 7000 && totalSellAmountInUSD < 10000)
+            {
+                userCommissionValue = 0.04 * productSellPrice;
+                userCommissionValue_USD = userCommissionValue * usdExchangeRate;
+                if (userSellesForthisMonth <= 7000)
+                {
+                    differenceTransaction.ProductSellPriceUSD = 0;
+                    differenceTransaction.ProductSellPrice = 0;
+                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
+                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    await Add(differenceTransaction);
+                }
             }
             else
             {
-                commissionUSDValue = 0.05 * creditUSD;
-
-                differenceTransaction.SaleUSD = 0;
-                differenceTransaction.BalanceUsd = salesForthisMonthInUSD * 0.01 + commissionUSDValue;
-                await _applicationContext.Transactions.AddAsync(differenceTransaction);
-                await _applicationContext.SaveChangesAsync();
-
+                userCommissionValue = 0.05 * productSellPrice;
+                userCommissionValue_USD = userCommissionValue * usdExchangeRate;
+                if (userSellesForthisMonth <= 10000)
+                {
+                    differenceTransaction.ProductSellPriceUSD = 0;
+                    differenceTransaction.ProductSellPrice = 0;
+                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
+                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    await Add(differenceTransaction);
+                }
             }
 
-
-
-
-            var lastBalanceInUSD = await GetUserBalanceInUSD(userId);
-
-            var currentBalanceInUSD = lastBalanceInUSD + commissionUSDValue - debitUSD;
+            var lastBalance = await GetUserBalanceInUSD(userId);
+            var currentBalance = lastBalance + userCommissionValue - debitUSD;
 
             Transaction transaction = new Transaction
             {
                 UserId = userId,
                 BouquetId = BouquetId ?? 0,
                 CreatedBy = CreatedBy,
-                Type = credit > 0 ? CommunityTransactionType.Credit : CommunityTransactionType.Debit,
-                Credit = credit,
+                Type = productSellPrice > 0 ? CommunityTransactionType.Credit : CommunityTransactionType.Debit,
+                Credit = userCommissionValue,
                 Debit = debit,
                 Currency = Currency,
                 ExchangeRate = usdExchangeRate,
                 DebitUsd = debitUSD,
-                CreditUsd = creditUSD,
-                BalanceUsd = currentBalanceInUSD,
+                CreditUsd = userCommissionValue_USD,
+                BalanceUsd = currentBalance,
                 CreateDate = DateTime.UtcNow,
                 Note = "",
                 TransactionExtended = transactionExtended,
                 Status = TransactionStatus.Confirmed,
-                SaleUSD = creditUSD
+                ProductSellPrice = productSellPrice,
+                ProductSellPriceUSD = productSellPrice_USD,
+
             };
-            var trans = await _applicationContext.Transactions.AddAsync(transaction);
-            await _applicationContext.SaveChangesAsync();
+            var trans = await Add(transaction);
 
             return true;
         }
@@ -222,6 +226,18 @@ namespace Voucher_System.Controllers
                 .OrderByDescending(i => i.Id).Select(i => i.BalanceUsd).FirstOrDefaultAsync();
             return balanceUsd;
         }
-
+        public async Task<bool> Add(Transaction transaction)
+        {
+            await _applicationContext.AddAsync(transaction);
+            _applicationContext.Entry(transaction).State = EntityState.Added;
+            return await _applicationContext.SaveChangesAsync() > 0;
+        }
+        public async Task<double> GetUserProductSellsForThisMonth(int userId, int month)
+        {
+            var balanceUsd = await _applicationContext.Transactions
+                .Where(i => i.UserId == userId && i.Status != TransactionStatus.Rejected && i.CreateDate.Month == month)
+                .OrderByDescending(i => i.Id).SumAsync(i => i.ProductSellPrice);
+            return balanceUsd;
+        }
     }
 }

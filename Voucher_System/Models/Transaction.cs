@@ -28,7 +28,9 @@ namespace Voucher_System.Models
         [Column("create_date")] public DateTime CreateDate { get; set; }
         [Column("created_by")] public int? CreatedBy { get; set; }
         [Column("status")] public TransactionStatus Status { get; set; }
-        [Column("sale_usd")] public double SaleUSD { get; set; }
+        [Column("product_sell_price_usd")] public double ProductSellPriceUSD { get; set; }
+        [Column("product_sell_price")] public double ProductSellPrice { get; set; }
+
         public virtual TransactionExtended TransactionExtended { get; set; }
     }
 

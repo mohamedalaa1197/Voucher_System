@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Voucher_System.Models;
 
 namespace Voucher_System.Migrations
 {
     [DbContext(typeof(ApplicationContext))]
-    partial class ApplicationContextModelSnapshot : ModelSnapshot
+    [Migration("20220706162438_change")]
+    partial class change
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -127,6 +129,14 @@ namespace Voucher_System.Migrations
                     b.Property<int?>("BouquetId")
                         .HasColumnType("int")
                         .HasColumnName("bouquet_id");
+
+                    b.Property<double>("CommissionValue")
+                        .HasColumnType("float")
+                        .HasColumnName("commission_value");
+
+                    b.Property<double>("CommissionValueUSD")
+                        .HasColumnType("float")
+                        .HasColumnName("commission_value_USD");
 
                     b.Property<DateTime>("CreateDate")
                         .HasColumnType("datetime2")
