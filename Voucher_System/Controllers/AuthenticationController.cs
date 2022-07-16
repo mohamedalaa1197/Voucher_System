@@ -60,9 +60,12 @@ namespace Voucher_System.Controllers
         }
 
         [HttpPost("test")]
-        public async Task<IActionResult> Test([FromQuery] double amount)
+        public async Task<IActionResult> Test([FromBody] test test)
         {
-            await AddTransaction(1, 1, amount, 0, 1, "USD");
+            foreach (var amount in test.amounts)
+            {
+                await AddTransactionTest(1, 1, amount, 0, 1, "USD");
+            }
 
             return Ok();
         }
@@ -98,20 +101,59 @@ namespace Voucher_System.Controllers
         {
             return await _applicationContext.Customers.AnyAsync(u => u.Email == email.ToLower());
         }
+        public async Task<bool> AddTransaction(int userId, double usdExchangeRate, double credit,
+             double productSellPrice, double debit, int opsId, string Currency,
+             int? BouquetId = null, int? CreatedBy = null,
+             TransactionExtended transactionExtended = null)
+        {
+            var lastBalance = await GetUserBalanceInUSD(userId);
+            var creditUSD = credit * usdExchangeRate;
+            var debitUSD = debit * usdExchangeRate;
+            var currentBalance = lastBalance + creditUSD - debitUSD;
 
+            Transaction transaction = new Transaction
+            {
+                UserId = userId,
+                BouquetId = BouquetId ?? 0,
+                CreatedBy = CreatedBy,
+                Type = credit > 0 ? CommunityTransactionType.Credit : CommunityTransactionType.Debit,
+                Credit = credit,
+                Debit = debit,
+                Currency = Currency,
+                ExchangeRate = usdExchangeRate,
+                DebitUsd = debitUSD,
+                CreditUsd = creditUSD,
+                BalanceUsd = currentBalance,
+                CreateDate = DateTime.UtcNow,
+                Note = "",
+                TransactionExtended = transactionExtended,
+                Status = TransactionStatus.Confirmed,
+                ProductSellPrice = productSellPrice,
+                ProductSellPriceUSD = usdExchangeRate * productSellPrice
+            };
+            var trans = await Add(transaction);
 
-        public async Task<bool> AddTransaction(int userId, double usdExchangeRate,
-            double productSellPrice, double debit, int opsId, string Currency,
-            int? BouquetId = null, int? CreatedBy = null,
-            TransactionExtended transactionExtended = null)
+            return true;
+        }
+        public async Task<double> GetUserCommissionAndAddDifferenceTransaction(int userId, double usdExchangeRate,
+      double productSellPrice, double debit, int opsId, string Currency,
+      int? BouquetId = null, int? CreatedBy = null,
+      TransactionExtended transactionExtended = null)
         {
             var productSellPrice_USD = productSellPrice * usdExchangeRate;
             var debitUSD = debit * usdExchangeRate;
-            var userSellesForthisMonth = await GetUserProductSellsForThisMonth(userId, DateTime.UtcNow.Month); //700
+
+            var userSellesForthisMonth = await GetUserProductSellsForThisMonth(userId, DateTime.UtcNow.Month);
             var userSellesForThisMonth_USD = userSellesForthisMonth * usdExchangeRate;
+
             double userCommissionValue = 0;
             double userCommissionValue_USD = 0;
-            var userBalance = await GetUserBalanceInUSD(userId);
+
+            var userBalanceUSD = await GetUserBalanceInUSD(userId);
+
+            var lastTransactionPrecentageValue = await GetLastTransactionCommissionPrecentage(userId);
+
+
             var differenceTransaction = new Transaction
             {
                 UserId = userId,
@@ -125,54 +167,51 @@ namespace Voucher_System.Controllers
                 CreateDate = DateTime.UtcNow,
                 Note = "",
                 TransactionExtended = transactionExtended,
-                Status = TransactionStatus.Confirmed
+                Status = TransactionStatus.Confirmed,
+                ProductSellPriceUSD = 0,
+                ProductSellPrice = 0
             };
+
             var totalSellAmountInUSD = (userSellesForThisMonth_USD + productSellPrice_USD);
             if (totalSellAmountInUSD <= 1000)
             {
                 userCommissionValue = 0.01 * productSellPrice;
                 userCommissionValue_USD = userCommissionValue * usdExchangeRate;
             }
-            else if (totalSellAmountInUSD > 1000 && totalSellAmountInUSD < 4000)
+            else if (totalSellAmountInUSD > 1000 && totalSellAmountInUSD <= 4000)
             {
                 userCommissionValue = 0.02 * productSellPrice;
                 userCommissionValue_USD = userCommissionValue * usdExchangeRate;
                 if (userSellesForthisMonth <= 1000)
                 {
-                    differenceTransaction.ProductSellPriceUSD = 0;
-                    differenceTransaction.ProductSellPrice = 0;
-                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
-                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
-                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    differenceTransaction.Credit = userSellesForthisMonth * (0.02 - lastTransactionPrecentageValue);
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * (0.02 - lastTransactionPrecentageValue);
+                    differenceTransaction.BalanceUsd = userBalanceUSD + (userSellesForThisMonth_USD * (0.02 - lastTransactionPrecentageValue));
                     await Add(differenceTransaction);
                 }
 
             }
-            else if (totalSellAmountInUSD > 4000 && totalSellAmountInUSD < 7000)
+            else if (totalSellAmountInUSD > 4000 && totalSellAmountInUSD <= 7000)
             {
                 userCommissionValue = 0.03 * productSellPrice;
                 userCommissionValue_USD = userCommissionValue * usdExchangeRate;
                 if (userSellesForthisMonth <= 4000)
                 {
-                    differenceTransaction.ProductSellPriceUSD = 0;
-                    differenceTransaction.ProductSellPrice = 0;
-                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
-                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
-                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    differenceTransaction.Credit = userSellesForthisMonth * (0.03 - lastTransactionPrecentageValue);
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * (0.03 - lastTransactionPrecentageValue);
+                    differenceTransaction.BalanceUsd = userBalanceUSD + (userSellesForThisMonth_USD * (0.03 - lastTransactionPrecentageValue));
                     await Add(differenceTransaction);
                 }
             }
-            else if (totalSellAmountInUSD > 7000 && totalSellAmountInUSD < 10000)
+            else if (totalSellAmountInUSD > 7000 && totalSellAmountInUSD <= 10000)
             {
                 userCommissionValue = 0.04 * productSellPrice;
                 userCommissionValue_USD = userCommissionValue * usdExchangeRate;
                 if (userSellesForthisMonth <= 7000)
                 {
-                    differenceTransaction.ProductSellPriceUSD = 0;
-                    differenceTransaction.ProductSellPrice = 0;
-                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
-                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
-                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    differenceTransaction.Credit = userSellesForthisMonth * (0.04 - lastTransactionPrecentageValue);
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * (0.04 - lastTransactionPrecentageValue);
+                    differenceTransaction.BalanceUsd = userBalanceUSD + (userSellesForThisMonth_USD * (0.04 - lastTransactionPrecentageValue));
                     await Add(differenceTransaction);
                 }
             }
@@ -182,42 +221,33 @@ namespace Voucher_System.Controllers
                 userCommissionValue_USD = userCommissionValue * usdExchangeRate;
                 if (userSellesForthisMonth <= 10000)
                 {
-                    differenceTransaction.ProductSellPriceUSD = 0;
-                    differenceTransaction.ProductSellPrice = 0;
-                    differenceTransaction.Credit = userSellesForthisMonth * 0.01;
-                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * 0.01;
-                    differenceTransaction.BalanceUsd = userBalance + (userSellesForThisMonth_USD * 0.01) + userCommissionValue;
+                    differenceTransaction.Credit = userSellesForthisMonth * (0.05 - lastTransactionPrecentageValue);
+                    differenceTransaction.CreditUsd = userSellesForThisMonth_USD * (0.05 - lastTransactionPrecentageValue);
+                    differenceTransaction.BalanceUsd = userBalanceUSD + (userSellesForThisMonth_USD * (0.05 - lastTransactionPrecentageValue));
                     await Add(differenceTransaction);
                 }
             }
 
-            var lastBalance = await GetUserBalanceInUSD(userId);
-            var currentBalance = lastBalance + userCommissionValue - debitUSD;
+            return userCommissionValue;
+        }
 
-            Transaction transaction = new Transaction
-            {
-                UserId = userId,
-                BouquetId = BouquetId ?? 0,
-                CreatedBy = CreatedBy,
-                Type = productSellPrice > 0 ? CommunityTransactionType.Credit : CommunityTransactionType.Debit,
-                Credit = userCommissionValue,
-                Debit = debit,
-                Currency = Currency,
-                ExchangeRate = usdExchangeRate,
-                DebitUsd = debitUSD,
-                CreditUsd = userCommissionValue_USD,
-                BalanceUsd = currentBalance,
-                CreateDate = DateTime.UtcNow,
-                Note = "",
-                TransactionExtended = transactionExtended,
-                Status = TransactionStatus.Confirmed,
-                ProductSellPrice = productSellPrice,
-                ProductSellPriceUSD = productSellPrice_USD,
+        public async Task<bool> AddTransactionTest(int userId, double usdExchangeRate,
+            double productSellPrice, double debit, int opsId, string Currency,
+            int? BouquetId = null, int? CreatedBy = null,
+            TransactionExtended transactionExtended = null)
+        {
+            var userCommissionValue = await GetUserCommissionAndAddDifferenceTransaction(userId, usdExchangeRate, productSellPrice, debit, opsId,
+              Currency, BouquetId, CreatedBy, transactionExtended);
 
-            };
-            var trans = await Add(transaction);
+            return await AddTransaction(userId, usdExchangeRate, userCommissionValue, productSellPrice, debit, opsId,
+                Currency, BouquetId, CreatedBy, transactionExtended);
+        }
 
-            return true;
+        public async Task<double> GetLastTransactionCommissionPrecentage(int userId)
+        {
+            return await _applicationContext.Transactions
+               .Where(i => i.UserId == userId && i.Status != TransactionStatus.Rejected)
+               .OrderByDescending(i => i.Id).Select(i => (i.CreditUsd / i.ProductSellPriceUSD)).FirstOrDefaultAsync();
         }
         public async Task<double> GetUserBalanceInUSD(int userId)
         {
