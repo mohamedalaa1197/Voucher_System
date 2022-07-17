@@ -30,7 +30,7 @@ namespace Voucher_System.Models
         [Column("status")] public TransactionStatus Status { get; set; }
         [Column("product_sell_price_usd")] public double ProductSellPriceUSD { get; set; }
         [Column("product_sell_price")] public double ProductSellPrice { get; set; }
-
+        [Column("commission_precentage")] public double CommissionPrecentage { get; set; }
         public virtual TransactionExtended TransactionExtended { get; set; }
     }
 
